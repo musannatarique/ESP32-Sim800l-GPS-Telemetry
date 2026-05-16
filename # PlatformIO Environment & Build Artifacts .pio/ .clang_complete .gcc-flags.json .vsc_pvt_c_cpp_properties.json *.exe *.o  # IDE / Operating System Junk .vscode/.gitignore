@@ -1,0 +1,12 @@
+# PlatformIO Environment & Build Artifacts
+.pio/
+.clang_complete
+.gcc-flags.json
+.vsc_pvt_c_cpp_properties.json
+*.exe
+*.o
+
+# IDE / Operating System Junk
+.vscode/
+.DS_Store
+Thumbs.db
