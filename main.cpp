@@ -68,7 +68,7 @@ void setup() {
     Serial.begin(115200);
     setupModem();
     WiFiManager wm;
-    wm.autoConnect("BD-TESLA-SETUP-AP"); 
+    wm.autoConnect("TRACKER-SETUP-AP"); 
     secureClient.setInsecure(); 
     client.setServer(mqtt_server, mqtt_port);
 }
