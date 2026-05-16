@@ -6,7 +6,7 @@ An optimized, real-time vehicular asset tracking solution leveraging hybrid conn
 
 * **Processor Core**: TTGO T-Call (AM-036 Module with ESP32 and SIM800L GPRS Engine)
 * **GNSS Unit**: Neo-6M GPS Engine
-* **Power Profiling**: TP4056-based Lithium Ion Charging Module paired with a 1000µF high-capacity filtering capacitor to stabilize GPRS burst drops.
+* **Power Profiling**: TP4056-based Lithium Ion Charging Module paired with a 1000µF high-capacity filtering capacitor to stabilize GPRS burst drops. 
 * **10000mAh Battery**: To Provide Power 
 
 ### Pinout Mapping Configuration
@@ -19,6 +19,7 @@ An optimized, real-time vehicular asset tracking solution leveraging hybrid conn
 | **Neo-6M RX** | `IO2` | Hardware Serial GNSS TX |
 | **Neo-6M TX** | `IO25` | Hardware Serial GNSS RX |
 | **Power ADC** | `IO34` | Precision Analog Voltage Divider |
+| **Capacitor** | `JST Pin` | For Stabilize Power Supply |
 
 ---
 
