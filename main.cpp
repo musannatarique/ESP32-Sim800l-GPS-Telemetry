@@ -6,7 +6,7 @@
 #include <PubSubClient.h>
 #include <WiFiClientSecure.h>
 
-/* --- HARDWARE PINS (TTGO T-Call V1.3) --- */
+/* --- HARDWARE PINS (TTGO T-Call V1.3 / AM-036 Configuration) --- */
 #define MODEM_RST            5
 #define MODEM_PWKEY          4
 #define MODEM_POWER_ON       23
@@ -16,12 +16,12 @@
 #define GPS_TX_PIN           25
 #define BAT_ADC_PIN          34 
 
-/* --- MQTT & CLOUD CONFIG --- */
-const char apn[]        = "gpinternet"; 
-const char* mqtt_server = "6f84bb7bd54741a48ecb5bb03e62a6ed.s1.eu.hivemq.cloud";
+/* --- MQTT & CLOUD CONFIGURATION (SANITIZED FOR PUBLIC REPO) --- */
+const char apn[]        = "your_carrier_apn"; 
+const char* mqtt_server = "YOUR_HIVEMQ_CLUSTER_ID.s1.eu.hivemq.cloud"; 
 const int mqtt_port     = 8883;
-const char* mqtt_user   = "TeslaTracker"; 
-const char* mqtt_pass   = "8505Google";   
+const char* mqtt_user   = "YOUR_MQTT_USERNAME"; 
+const char* mqtt_pass   = "YOUR_MQTT_PASSWORD";   
 
 HardwareSerial SerialAT(1);
 HardwareSerial SerialGPS(2);
@@ -30,8 +30,9 @@ TinyGPSPlus gps;
 WiFiClientSecure secureClient;
 PubSubClient client(secureClient);
 
-String deviceId = "DEV-002";
-String topic    = "gps/devices/DEV-002/location";
+// Device Tracking Topics
+String deviceId = "YOUR_DEVICE_ID";
+String topic    = "gps/devices/" + deviceId + "/location";
 
 /* --- POWER & BATTERY LOGIC --- */
 float getBatteryVoltage() {
@@ -67,7 +68,7 @@ void setup() {
     Serial.begin(115200);
     setupModem();
     WiFiManager wm;
-    wm.autoConnect("BD-TESLA-SETUP"); 
+    wm.autoConnect("BD-TESLA-SETUP-AP"); 
     secureClient.setInsecure(); 
     client.setServer(mqtt_server, mqtt_port);
 }
@@ -77,13 +78,13 @@ void loop() {
 
     if (!client.connected()) {
         if (client.connect(deviceId.c_str(), mqtt_user, mqtt_pass)) {
-            Serial.println("MQTT Live");
+            Serial.println("MQTT Connection Live");
         }
     }
     client.loop();
 
     static unsigned long lastPub = 0;
-    if (millis() - lastPub >= 5000) { // Set to 5s for better real-time feel
+    if (millis() - lastPub >= 5000) { 
         lastPub = millis();
 
         float vBat = getBatteryVoltage();
@@ -91,7 +92,6 @@ void loop() {
         String pwrStat;
         bool hasBat = true;
 
-        // Detection Gate for image_e8fde5.png fix
         if (vBat < 2.5) { 
             hasBat = false;
             pwrStat = "Connected via USB"; 
