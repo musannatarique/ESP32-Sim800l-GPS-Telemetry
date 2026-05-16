@@ -26,7 +26,7 @@ An optimized, real-time vehicular asset tracking solution leveraging hybrid conn
 ## 🚀 Quick Start & Installation
 
 ### 1. Hardware Assembly
-Upload the `schematic_diagram.png` located inside the `hardware/` folder to view complete loop paths. Make sure the 1000µF capacitor sits physically close to the SIM800L power input pins to eliminate voltage dips when transmission flags trip.
+Upload the `schematic_diagram.png`  to view complete loop paths. Make sure the 1000µF capacitor sits physically close to the SIM800L power input pins to eliminate voltage dips when transmission flags trip.
 
 ### 2. Firmware Compilation
 This codebase relies on PlatformIO IDE. 
