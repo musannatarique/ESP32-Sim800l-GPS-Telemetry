@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BD-Tesla | High-Contrast Dark Command</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@500;700&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
+
+    <style>
+        :root { 
+            --m3-surface: rgba(30, 31, 35, 0.95);
+            --m3-text: #E6E1E5;
+            --m3-primary: #D3E3FD; 
+            --m3-success: #C4EED0;
+            --m3-error: #F2B8B5;
+            --m3-outline: rgba(255, 255, 255, 0.1);
+            --glass-blur: blur(20px);
+        }
+        
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: 'Google Sans', sans-serif; background: #000; overflow: hidden; }
+        
+        /* NO FILTERS: Pure vector-style rendering for maximum clarity */
+        #map { position: absolute; inset: 0; z-index: 1; background: #111; }
+
+        .glass-panel { 
+            position: absolute; 
+            z-index: 1000; 
+            background: var(--m3-surface); 
+            backdrop-filter: var(--glass-blur); 
+            border: 1px solid var(--m3-outline); 
+            border-radius: 20px; 
+            padding: 20px; 
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5); 
+            pointer-events: auto; 
+            color: var(--m3-text);
+        }
+
+        /* HUD LAYOUT */
+        .hud-top { top: 20px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 35px; min-width: 500px; justify-content: space-between; }
+        .hud-bottom-left { bottom: 30px; left: 30px; min-width: 340px; }
+        .hud-bottom-right { bottom: 30px; right: 30px; min-width: 340px; text-align: right; }
+
+        /* TYPOGRAPHY */
+        .label { font-size: 11px; font-weight: 700; color: #938F99; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+        .val-geo { font-family: 'Roboto Mono', monospace; font-size: 26px; color: #fff; font-weight: 600; }
+        .val-battery { font-size: 56px; color: var(--m3-success); font-weight: 700; line-height: 1; }
+        .brand-text { font-size: 22px; font-weight: 700; color: var(--m3-primary); letter-spacing: 3px; }
+
+        .chip { background: rgba(255,255,255,0.05); padding: 8px 16px; border-radius: 12px; font-size: 12px; display: flex; align-items: center; gap: 10px; color: #E3E3E3; border: 1px solid var(--m3-outline); }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #444; transition: 0.3s; }
+        .active-blue { background: #7CACEF; box-shadow: 0 0 10px #7CACEF; }
+        .active-green { background: #C4EED0; box-shadow: 0 0 10px #C4EED0; }
+
+        .net-tag { font-size: 11px; background: var(--m3-primary); color: #041E49; padding: 2px 8px; border-radius: 4px; font-weight: 700; margin-left: 12px; }
+        .off-text { color: var(--m3-error) !important; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="glass-panel hud-top">
+        <div class="brand-text">BD-TESLA <span id="net-type" class="net-tag">...</span></div>
+        <div style="display: flex; gap: 15px;">
+            <div class="chip"><div id="cloud-ind" class="dot"></div> CLOUD</div>
+            <div class="chip"><div id="dev-ind" class="dot"></div> NODE LIVE</div>
+        </div>
+    </div>
+
+    <div class="glass-panel hud-bottom-left">
+        <div class="label">Navigation Telemetry</div>
+        <div class="val-geo" id="coords">WAITING</div>
+        <div style="margin-top:10px; font-size: 14px; color: var(--m3-primary); font-weight: 600;" id="net-status">Syncing Satellites...</div>
+    </div>
+
+    <div class="glass-panel hud-bottom-right">
+        <div class="label">System Energy</div>
+        <div id="bat-area" style="display: flex; align-items: flex-end; justify-content: flex-end; gap: 15px;">
+            <div id="pct-val" class="val-battery">--</div>
+            <div id="volt-val" style="font-size: 20px; color: #938F99; font-weight: 700; margin-bottom: 8px;">0.00V</div>
+        </div>
+        <div id="bat-stat" style="margin-top: 12px; font-size: 14px; background: rgba(196, 238, 208, 0.1); color: var(--m3-success); padding: 8px 16px; border-radius: 10px; display: inline-block; font-weight: 700; border: 1px solid rgba(196, 238, 208, 0.2);">
+            READY
+        </div>
+    </div>
+
+    <script>
+        const config = { host: '6f84bb7bd54741a48ecb5bb03e62a6ed.s1.eu.hivemq.cloud', port: 8884, user: 'TeslaTracker', pass: '8505Google', topic: 'gps/devices/DEV-002/location' };
+
+        // --- GOOGLE-STYLE DARK THEME ENGINE ---
+        // Using CartoDB Dark Matter: Best balance of dark aesthetic and readability
+        const darkMode = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap'
+        });
+        
+        // High-Resolution Satellite
+        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
+        
+        // Crisp Dark Labels for Satellite view
+        const labels = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', { zIndex: 1000 });
+
+        const map = L.map('map', { zoomControl: false, layers: [darkMode] }).setView([23.8103, 90.4125], 13);
+        
+        // Layer Control - Top Left for convenience
+        const baseMaps = { "High-Contrast Dark": darkMode, "Satellite View": satellite };
+        const overlayMaps = { "Location Labels": labels };
+        L.control.layers(baseMaps, overlayMaps, { position: 'topleft' }).addTo(map);
+
+        let marker = L.marker([23.8103, 90.4125]).addTo(map);
+        let hasLock = false;
+        let watchdog;
+
+        function resetUI() {
+            document.getElementById('dev-ind').classList.remove('active-green');
+            document.getElementById('coords').classList.add('off-text');
+            document.getElementById('coords').innerText = "DISCONNECTED";
+            document.getElementById('pct-val').innerText = "--";
+            document.getElementById('volt-val').innerText = "0.00V";
+            document.getElementById('bat-stat').innerText = "OFFLINE";
+            document.getElementById('bat-stat').style.color = "var(--m3-error)";
+            document.getElementById('bat-stat').style.background = "rgba(242, 184, 181, 0.1)";
+            document.getElementById('bat-stat').style.borderColor = "rgba(242, 184, 181, 0.2)";
+        }
+
+        const client = mqtt.connect(`wss://${config.host}:${config.port}/mqtt`, { username: config.user, password: config.pass, keepalive: 60 });
+
+        client.on('connect', () => { document.getElementById('cloud-ind').classList.add('active-blue'); client.subscribe(config.topic); });
+
+        client.on('message', (topic, message) => {
+            requestAnimationFrame(() => {
+                try {
+                    const data = JSON.parse(message.toString());
+                    document.getElementById('dev-ind').classList.add('active-green');
+                    document.getElementById('coords').classList.remove('off-text');
+                    document.getElementById('bat-stat').style.color = "var(--m3-success)";
+                    document.getElementById('bat-stat').style.background = "rgba(196, 238, 208, 0.1)";
+                    document.getElementById('bat-stat').style.borderColor = "rgba(196, 238, 208, 0.2)";
+
+                    if (data.has_bat === false) {
+                        document.getElementById('pct-val').innerText = "USB";
+                        document.getElementById('volt-val').innerText = (data.volt || 0).toFixed(2) + "V";
+                        document.getElementById('bat-stat').innerText = "EXTERNAL POWER ACTIVE";
+                    } else {
+                        document.getElementById('pct-val').innerText = (data.batt_pct || 0) + "%";
+                        document.getElementById('volt-val').innerText = (data.volt || 0).toFixed(2) + "V";
+                        document.getElementById('bat-stat').innerText = (data.bat_stat || "LIVE").toUpperCase();
+                    }
+
+                    if(data.net) {
+                        document.getElementById('net-type').innerText = data.net.toUpperCase();
+                        document.getElementById('net-status').innerText = data.net.toUpperCase() + " SYSTEM ONLINE";
+                    }
+
+                    if (data.lat && data.lat !== 0) {
+                        const pos = [data.lat, data.lon];
+                        document.getElementById('coords').innerText = data.lat.toFixed(5) + ", " + data.lon.toFixed(5);
+                        marker.setLatLng(pos);
+                        if (!hasLock) { map.flyTo(pos, 17); hasLock = true; } else { map.panTo(pos); }
+                    }
+
+                    clearTimeout(watchdog);
+                    watchdog = setTimeout(resetUI, 12000);
+                } catch (e) { console.error("Packet failure"); }
+            });
+        });
+    </script>
+</body>
+</html>
