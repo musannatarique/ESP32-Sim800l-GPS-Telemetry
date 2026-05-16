@@ -17,11 +17,11 @@
 #define BAT_ADC_PIN          34 
 
 /* --- MQTT & CLOUD CONFIGURATION (SANITIZED FOR PUBLIC REPO) --- */
-const char apn[]        = "your_carrier_apn"; 
-const char* mqtt_server = "YOUR_HIVEMQ_CLUSTER_ID.s1.eu.hivemq.cloud"; 
-const int mqtt_port     = 8883;
-const char* mqtt_user   = "YOUR_MQTT_USERNAME"; 
-const char* mqtt_pass   = "YOUR_MQTT_PASSWORD";   
+const char apn[]        = "your_carrier_apn"; // Change
+const char* mqtt_server = "YOUR_HIVEMQ_CLUSTER_ID.s1.eu.hivemq.cloud"; // Change
+const int mqtt_port     = 8883; //
+const char* mqtt_user   = "YOUR_MQTT_USERNAME"; // Change
+const char* mqtt_pass   = "YOUR_MQTT_PASSWORD";   // Change 
 
 HardwareSerial SerialAT(1);
 HardwareSerial SerialGPS(2);
@@ -31,7 +31,7 @@ WiFiClientSecure secureClient;
 PubSubClient client(secureClient);
 
 // Device Tracking Topics
-String deviceId = "YOUR_DEVICE_ID";
+String deviceId = "YOUR_DEVICE_ID"; // Change
 String topic    = "gps/devices/" + deviceId + "/location";
 
 /* --- POWER & BATTERY LOGIC --- */
