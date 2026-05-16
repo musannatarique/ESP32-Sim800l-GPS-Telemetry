@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>BD-Tesla | High-Contrast Dark Command</title>
+    <title>BD-Tesla | Sanitized Public Command Dashboard</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -20,8 +20,6 @@
         }
         
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: 'Google Sans', sans-serif; background: #000; overflow: hidden; }
-        
-        /* NO FILTERS: Pure vector-style rendering for maximum clarity */
         #map { position: absolute; inset: 0; z-index: 1; background: #111; }
 
         .glass-panel { 
@@ -37,12 +35,10 @@
             color: var(--m3-text);
         }
 
-        /* HUD LAYOUT */
         .hud-top { top: 20px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 35px; min-width: 500px; justify-content: space-between; }
         .hud-bottom-left { bottom: 30px; left: 30px; min-width: 340px; }
         .hud-bottom-right { bottom: 30px; right: 30px; min-width: 340px; text-align: right; }
 
-        /* TYPOGRAPHY */
         .label { font-size: 11px; font-weight: 700; color: #938F99; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
         .val-geo { font-family: 'Roboto Mono', monospace; font-size: 26px; color: #fff; font-weight: 600; }
         .val-battery { font-size: 56px; color: var(--m3-success); font-weight: 700; line-height: 1; }
@@ -87,23 +83,30 @@
     </div>
 
     <script>
-        const config = { host: '6f84bb7bd54741a48ecb5bb03e62a6ed.s1.eu.hivemq.cloud', port: 8884, user: 'TeslaTracker', pass: '8505Google', topic: 'gps/devices/DEV-002/location' };
+        /* --- MQTT & CLOUD CONFIGURATION (SANITIZED FOR PUBLIC REPO) --- */
+        const config = { 
+            // CHANGE: Your private cluster URL ('6f84bb7...hivemq.cloud') was replaced with a placeholder
+            host: 'YOUR_HIVEMQ_CLUSTER_ID.s1.eu.hivemq.cloud', 
+            
+            // NOTE: Port 8884 is standard for Secure WebSockets (WSS) and is left public intentionally
+            port: 8884, 
+            
+            // CHANGE: Private username ('TeslaTracker') was replaced with a placeholder
+            user: 'YOUR_MQTT_USERNAME', 
+            
+            // CHANGE: Private cluster credential password was replaced with a placeholder
+            pass: 'YOUR_MQTT_PASSWORD', 
+            
+            // CHANGE: Cleaned target path string into an obvious, modifiable project template
+            topic: 'gps/devices/YOUR_DEVICE_ID/location' 
+        };
 
-        // --- GOOGLE-STYLE DARK THEME ENGINE ---
-        // Using CartoDB Dark Matter: Best balance of dark aesthetic and readability
-        const darkMode = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© OpenStreetMap'
-        });
-        
-        // High-Resolution Satellite
+        const darkMode = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap' });
         const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
-        
-        // Crisp Dark Labels for Satellite view
         const labels = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', { zIndex: 1000 });
 
         const map = L.map('map', { zoomControl: false, layers: [darkMode] }).setView([23.8103, 90.4125], 13);
         
-        // Layer Control - Top Left for convenience
         const baseMaps = { "High-Contrast Dark": darkMode, "Satellite View": satellite };
         const overlayMaps = { "Location Labels": labels };
         L.control.layers(baseMaps, overlayMaps, { position: 'topleft' }).addTo(map);
@@ -162,7 +165,7 @@
 
                     clearTimeout(watchdog);
                     watchdog = setTimeout(resetUI, 12000);
-                } catch (e) { console.error("Packet failure"); }
+                } catch (e) { console.error("Packet parse error or dropped frame"); }
             });
         });
     </script>
