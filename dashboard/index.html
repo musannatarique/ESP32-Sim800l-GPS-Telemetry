@@ -104,37 +104,30 @@
         const START = [23.8103, 90.4125];      // Dhaka
 
         /* ---------------- MAP ---------------- */
-        const darkMode = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            subdomains: 'abcd', maxZoom: 20,
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-        });
-        const osmFallback = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        // Keyless tile sources only. CARTO basemaps now require an API key, so they are not used.
+        const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
         });
         const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 19, attribution: 'Tiles &copy; Esri'
         });
-        const labels = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
-            subdomains: 'abcd', maxZoom: 20, pane: 'overlayPane'
+        const esriStreets = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19, attribution: 'Tiles &copy; Esri'
         });
 
-        const map = L.map('map', { zoomControl: false, layers: [darkMode] }).setView(START, 13);
+        const map = L.map('map', { zoomControl: false, layers: [osm] }).setView(START, 13);
         L.control.zoom({ position: 'topright' }).addTo(map);
         L.control.layers(
-            { "High-Contrast Dark": darkMode, "Satellite View": satellite, "Standard": osmFallback },
-            { "Location Labels": labels },
+            { "Standard (OSM)": osm, "Esri Streets": esriStreets, "Satellite View": satellite },
+            {},
             { position: 'topleft' }
         ).addTo(map);
 
-        // If the dark tiles keep failing (blocked network, CDN issue), fall back to OSM automatically
+        // Tell the user if tiles are blocked instead of silently showing a blank map
         let tileErrors = 0;
-        darkMode.on('tileerror', () => {
-            if (++tileErrors === 8 && map.hasLayer(darkMode)) {
-                map.removeLayer(darkMode);
-                osmFallback.addTo(map);
-                showBanner('Dark map tiles blocked, switched to standard map');
-            }
-        });
+        [osm, esriStreets, satellite].forEach(l => l.on('tileerror', () => {
+            if (++tileErrors === 8) showBanner('Map tiles failed to load (check network or switch map layer)');
+        }));
 
         // Leaflet measures the container at creation; re-measure once layout settles
         window.addEventListener('load', () => map.invalidateSize());
