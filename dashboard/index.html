@@ -80,14 +80,14 @@
 
     <div class="glass-panel hud-bottom-left">
         <div class="label">Navigation Telemetry</div>
-        <div class="val-geo" id="coords">WAITING</div>
-        <div style="margin-top:10px; font-size: 14px; color: var(--m3-primary); font-weight: 600;" id="net-status">Syncing Satellites...</div>
+        <div class="val-geo off-text" id="coords">NOT CONNECTED</div>
+        <div style="margin-top:10px; font-size: 14px; color: var(--m3-primary); font-weight: 600;" id="net-status">Not connected</div>
     </div>
 
     <script>
         /* ---------------- CONFIG ----------------
            Keep placeholders in the public repo. While they are unchanged,
-           the page runs in DEMO MODE (simulated GPS) so the map can be tested.
+           the page shows NOT CONNECTED. No simulated data, no map API key needed.
            IMPORTANT: anything in this file is visible to every visitor.
            Create a separate HiveMQ credential that is SUBSCRIBE-ONLY on this one topic. */
         const config = {
@@ -98,7 +98,7 @@
             topic: 'gps/devices/YOUR_DEVICE_ID/location',
             staleMs: 12000                     // mark offline if no packet for this long
         };
-        const DEMO = config.host.startsWith('YOUR_');
+        const CONFIGURED = !config.host.startsWith('YOUR_');
 
         const $ = id => document.getElementById(id);
         const START = [23.8103, 90.4125];      // Dhaka
@@ -159,6 +159,16 @@
             $('coords').innerText = 'DISCONNECTED';
         }
 
+        function notConnected(msg) {
+            clearTimeout(watchdog);
+            $('dev-ind').classList.remove('active-green');
+            $('cloud-ind').classList.remove('active-blue');
+            $('coords').classList.add('off-text');
+            $('coords').innerText = 'NOT CONNECTED';
+            $('net-status').innerText = 'Not connected';
+            if (msg) showBanner(msg);
+        }
+
         let watchdog;
         function handleData(data) {
             $('dev-ind').classList.add('active-green');
@@ -187,22 +197,13 @@
         }
 
         /* ---------------- DATA SOURCE ---------------- */
-        if (DEMO) {
-            showBanner('DEMO MODE: simulated data. Set your HiveMQ details in config to go live.');
-            $('cloud-ind').classList.add('active-blue');
-            let t = 0;
-            setInterval(() => {
-                t += 0.02;
-                handleData({
-                    lat: START[0] + Math.sin(t) * 0.004,
-                    lon: START[1] + Math.cos(t) * 0.004,
-                    net: 'gprs'
-                });
-            }, 1000);
+        if (!CONFIGURED) {
+            $('cloud-ind').classList.add('active-red');
+            notConnected('NOT CONNECTED: set your HiveMQ details in the config block.');
         } else {
             if (typeof mqtt === 'undefined') {
-                showBanner('MQTT library failed to load (check network or ad blocker)');
                 $('cloud-ind').classList.add('active-red');
+                notConnected('MQTT library failed to load (check network or ad blocker)');
             } else {
                 const client = mqtt.connect(`wss://${config.host}:${config.port}/mqtt`, {
                     username: config.user,
@@ -219,11 +220,11 @@
                     showBanner('');
                     client.subscribe(config.topic, err => { if (err) showBanner('Subscribe failed: ' + err.message); });
                 });
-                client.on('reconnect', () => $('cloud-ind').classList.remove('active-blue'));
-                client.on('close', () => $('cloud-ind').classList.remove('active-blue'));
+                client.on('reconnect', () => notConnected('NOT CONNECTED: reconnecting to broker...'));
+                client.on('close', () => notConnected('NOT CONNECTED: broker link closed'));
                 client.on('error', err => {
                     $('cloud-ind').classList.add('active-red');
-                    showBanner('MQTT error: ' + err.message);
+                    notConnected('NOT CONNECTED: ' + err.message);
                 });
 
                 client.on('message', (topic, message) => {

@@ -72,7 +72,7 @@ On first boot with no saved WiFi, the tracker opens a setup access point named `
 
 ### 3. Dashboard
 
-Open `dashboard/index.html` in a browser. While the placeholders in its `config` block are unchanged, it runs in **demo mode** with a simulated moving marker, so you can check the map works. Fill in your HiveMQ host, username, password and device topic to go live.
+Open `dashboard/index.html` in a browser. The map uses free OpenStreetMap, CARTO and Esri tiles, so no map API key is needed. While the placeholders in its `config` block are unchanged, it shows **NOT CONNECTED** (no simulated data). Fill in your HiveMQ host, username, password and device topic to go live.
 
 ## MQTT contract
 
