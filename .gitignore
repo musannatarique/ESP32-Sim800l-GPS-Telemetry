@@ -1,0 +1,14 @@
+# PlatformIO build artifacts
+.pio/
+.clang_complete
+.gcc-flags.json
+.vsc_pvt_c_cpp_properties.json
+*.o
+*.exe
+
+# IDE / OS junk
+.vscode/
+.DS_Store
+
+# Real credentials: only secrets.example.h is tracked
+firmware/include/secrets.h
