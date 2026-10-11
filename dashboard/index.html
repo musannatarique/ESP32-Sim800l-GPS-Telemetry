@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BD-Tesla | Public Command Dashboard</title>
+
+    <!-- Pinned versions: unpinned unpkg URLs resolve to "latest" and break without warning -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/mqtt@5.10.3/dist/mqtt.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500;700&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --m3-surface: rgba(30, 31, 35, 0.95);
+            --m3-text: #E6E1E5;
+            --m3-primary: #D3E3FD;
+            --m3-error: #F2B8B5;
+            --m3-outline: rgba(255, 255, 255, 0.1);
+            --glass-blur: blur(20px);
+        }
+
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: 'Roboto', sans-serif; background: #000; overflow: hidden; }
+        #map { position: absolute; inset: 0; z-index: 1; background: #111; }
+
+        .glass-panel {
+            position: absolute;
+            z-index: 1000;
+            background: var(--m3-surface);
+            -webkit-backdrop-filter: var(--glass-blur);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--m3-outline);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            color: var(--m3-text);
+        }
+
+        .hud-top { top: 20px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 35px; min-width: 500px; justify-content: space-between; }
+        .hud-bottom-left { bottom: 30px; left: 30px; min-width: 340px; }
+
+        .label { font-size: 11px; font-weight: 700; color: #938F99; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+        .val-geo { font-family: 'Roboto Mono', monospace; font-size: 26px; color: #fff; font-weight: 500; }
+        .brand-text { font-size: 22px; font-weight: 700; color: var(--m3-primary); letter-spacing: 3px; }
+
+        .chip { background: rgba(255,255,255,0.05); padding: 8px 16px; border-radius: 12px; font-size: 12px; display: flex; align-items: center; gap: 10px; color: #E3E3E3; border: 1px solid var(--m3-outline); }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #444; transition: 0.3s; }
+        .active-blue { background: #7CACEF; box-shadow: 0 0 10px #7CACEF; }
+        .active-green { background: #C4EED0; box-shadow: 0 0 10px #C4EED0; }
+        .active-red { background: #F2B8B5; box-shadow: 0 0 10px #F2B8B5; }
+
+        .net-tag { font-size: 11px; background: var(--m3-primary); color: #041E49; padding: 2px 8px; border-radius: 4px; font-weight: 700; margin-left: 12px; }
+        .off-text { color: var(--m3-error) !important; }
+
+        /* Replaces the default Leaflet marker, which breaks when its image paths fail to resolve */
+        .pulse-marker { width: 18px; height: 18px; border-radius: 50%; background: #7CACEF; border: 3px solid #fff; box-shadow: 0 0 0 0 rgba(124,172,239,0.7); animation: pulse 2s infinite; }
+        @keyframes pulse { 70% { box-shadow: 0 0 0 18px rgba(124,172,239,0); } 100% { box-shadow: 0 0 0 0 rgba(124,172,239,0); } }
+
+        #banner { position: absolute; z-index: 1001; top: 100px; left: 50%; transform: translateX(-50%); background: rgba(242,184,181,0.15); border: 1px solid rgba(242,184,181,0.4); color: var(--m3-error); padding: 8px 16px; border-radius: 12px; font-size: 13px; display: none; }
+
+        @media (max-width: 720px) {
+            .hud-top { min-width: 0; width: calc(100% - 40px); gap: 10px; flex-wrap: wrap; }
+            .hud-bottom-left { min-width: 0; left: 10px; right: 10px; bottom: 10px; width: calc(100% - 60px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+    <div id="banner"></div>
+
+    <div class="glass-panel hud-top">
+        <div class="brand-text">BD-TESLA <span id="net-type" class="net-tag">...</span></div>
+        <div style="display: flex; gap: 15px;">
+            <div class="chip"><div id="cloud-ind" class="dot"></div> CLOUD</div>
+            <div class="chip"><div id="dev-ind" class="dot"></div> NODE LIVE</div>
+        </div>
+    </div>
+
+    <div class="glass-panel hud-bottom-left">
+        <div class="label">Navigation Telemetry</div>
+        <div class="val-geo off-text" id="coords">NOT CONNECTED</div>
+        <div style="margin-top:10px; font-size: 14px; color: var(--m3-primary); font-weight: 600;" id="net-status">Not connected</div>
+    </div>
+
+    <script>
+        /* ---------------- CONFIG ----------------
+           Keep placeholders in the public repo. While they are unchanged,
+           the page shows NOT CONNECTED. No simulated data, no map API key needed.
+           IMPORTANT: anything in this file is visible to every visitor.
+           Create a separate HiveMQ credential that is SUBSCRIBE-ONLY on this one topic. */
+        const config = {
+            host:  'YOUR_HIVEMQ_CLUSTER_ID.s1.eu.hivemq.cloud',
+            port:  8884,                       // secure WebSockets
+            user:  'YOUR_MQTT_USERNAME',
+            pass:  'YOUR_MQTT_PASSWORD',
+            topic: 'gps/devices/YOUR_DEVICE_ID/location',
+            staleMs: 12000                     // mark offline if no packet for this long
+        };
+        const CONFIGURED = !config.host.startsWith('YOUR_');
+
+        const $ = id => document.getElementById(id);
+        const START = [23.8103, 90.4125];      // Dhaka
+
+        /* ---------------- MAP ---------------- */
+        // Keyless tile sources only. CARTO needs an API key. OSM blocks pages opened from disk (file://, no Referer), so Esri is the default.
+        const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+        });
+        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19, attribution: 'Tiles &copy; Esri'
+        });
+        const esriStreets = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19, attribution: 'Tiles &copy; Esri'
+        });
+
+        const map = L.map('map', { zoomControl: false, layers: [esriStreets] }).setView(START, 13);
+        L.control.zoom({ position: 'topright' }).addTo(map);
+        L.control.layers(
+            { "Esri Streets": esriStreets, "Satellite View": satellite, "OSM (needs http/https page)": osm },
+            {},
+            { position: 'topleft' }
+        ).addTo(map);
+
+        // Tell the user if tiles are blocked instead of silently showing a blank map
+        let tileErrors = 0;
+        [osm, esriStreets, satellite].forEach(l => l.on('tileerror', () => {
+            if (++tileErrors === 8) showBanner('Map tiles failed to load (check network or switch map layer)');
+        }));
+
+        // Leaflet measures the container at creation; re-measure once layout settles
+        window.addEventListener('load', () => map.invalidateSize());
+        window.addEventListener('resize', () => map.invalidateSize());
+
+        const marker = L.marker(START, {
+            icon: L.divIcon({ className: '', html: '<div class="pulse-marker"></div>', iconSize: [18, 18], iconAnchor: [9, 9] })
+        }).addTo(map);
+
+        let hasLock = false;
+
+        function showBanner(msg) {
+            const b = $('banner');
+            b.textContent = msg;
+            b.style.display = msg ? 'block' : 'none';
+        }
+
+        /* ---------------- UI ---------------- */
+        function resetUI() {
+            $('dev-ind').classList.remove('active-green');
+            $('coords').classList.add('off-text');
+            $('coords').innerText = 'DISCONNECTED';
+        }
+
+        function notConnected(msg) {
+            clearTimeout(watchdog);
+            $('dev-ind').classList.remove('active-green');
+            $('cloud-ind').classList.remove('active-blue');
+            $('coords').classList.add('off-text');
+            $('coords').innerText = 'NOT CONNECTED';
+            $('net-status').innerText = 'Not connected';
+            if (msg) showBanner(msg);
+        }
+
+        let watchdog;
+        function handleData(data) {
+            $('dev-ind').classList.add('active-green');
+            $('coords').classList.remove('off-text');
+
+            if (data.net) {
+                $('net-type').innerText = String(data.net).toUpperCase();
+                $('net-status').innerText = String(data.net).toUpperCase() + ' SYSTEM ONLINE';
+            }
+
+            // Coerce first: devices often send lat/lon as strings. Packets without a fix omit
+            // lat/lon, so the marker simply stays at the last known position.
+            const lat = parseFloat(data.lat), lon = parseFloat(data.lon);
+            if (Number.isFinite(lat) && Number.isFinite(lon) && !(lat === 0 && lon === 0)
+                && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+                const pos = [lat, lon];
+                $('coords').innerText = lat.toFixed(5) + ', ' + lon.toFixed(5);
+                marker.setLatLng(pos);
+                if (!hasLock) { map.setView(pos, 17); hasLock = true; } else { map.panTo(pos); }
+            } else if (!hasLock) {
+                $('coords').innerText = 'NO GPS FIX';
+            }
+
+            clearTimeout(watchdog);
+            watchdog = setTimeout(resetUI, config.staleMs);
+        }
+
+        /* ---------------- DATA SOURCE ---------------- */
+        if (!CONFIGURED) {
+            $('cloud-ind').classList.add('active-red');
+            notConnected('NOT CONNECTED: set your HiveMQ details in the config block.');
+        } else {
+            if (typeof mqtt === 'undefined') {
+                $('cloud-ind').classList.add('active-red');
+                notConnected('MQTT library failed to load (check network or ad blocker)');
+            } else {
+                const client = mqtt.connect(`wss://${config.host}:${config.port}/mqtt`, {
+                    username: config.user,
+                    password: config.pass,
+                    keepalive: 60,
+                    reconnectPeriod: 3000,
+                    connectTimeout: 10000,
+                    clientId: 'dash_' + Math.random().toString(16).slice(2, 10) // unique id, or sessions kick each other off
+                });
+
+                client.on('connect', () => {
+                    $('cloud-ind').classList.remove('active-red');
+                    $('cloud-ind').classList.add('active-blue');
+                    showBanner('');
+                    client.subscribe(config.topic, err => { if (err) showBanner('Subscribe failed: ' + err.message); });
+                });
+                client.on('reconnect', () => notConnected('NOT CONNECTED: reconnecting to broker...'));
+                client.on('close', () => notConnected('NOT CONNECTED: broker link closed'));
+                client.on('error', err => {
+                    $('cloud-ind').classList.add('active-red');
+                    notConnected('NOT CONNECTED: ' + err.message);
+                });
+
+                client.on('message', (topic, message) => {
+                    try { handleData(JSON.parse(message.toString())); }
+                    catch (e) { console.error('Bad packet', e); }
+                });
+            }
+        }
+    </script>
+</body>
+</html>
