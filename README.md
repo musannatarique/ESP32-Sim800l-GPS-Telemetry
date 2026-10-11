@@ -42,8 +42,8 @@ Place the 1000µF capacitor physically close to the SIM800L power input to preve
 ### 1. Clone
 
 ```bash
-git clone https://github.com/musannatarique/esp32-sim800l-gps-telemetry.git
-cd esp32-sim800l-gps-telemetry
+git clone https://github.com/musannatarique/ESP32-Sim800l-GPS-Telemetry.git
+cd ESP32-Sim800l-GPS-Telemetry
 ```
 
 Update later with `git pull`.
