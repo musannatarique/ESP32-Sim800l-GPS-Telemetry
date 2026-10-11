@@ -104,7 +104,7 @@
         const START = [23.8103, 90.4125];      // Dhaka
 
         /* ---------------- MAP ---------------- */
-        // Keyless tile sources only. CARTO basemaps now require an API key, so they are not used.
+        // Keyless tile sources only. CARTO needs an API key. OSM blocks pages opened from disk (file://, no Referer), so Esri is the default.
         const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
         });
@@ -115,10 +115,10 @@
             maxZoom: 19, attribution: 'Tiles &copy; Esri'
         });
 
-        const map = L.map('map', { zoomControl: false, layers: [osm] }).setView(START, 13);
+        const map = L.map('map', { zoomControl: false, layers: [esriStreets] }).setView(START, 13);
         L.control.zoom({ position: 'topright' }).addTo(map);
         L.control.layers(
-            { "Standard (OSM)": osm, "Esri Streets": esriStreets, "Satellite View": satellite },
+            { "Esri Streets": esriStreets, "Satellite View": satellite, "OSM (needs http/https page)": osm },
             {},
             { position: 'topleft' }
         ).addTo(map);
