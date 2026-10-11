@@ -12,3 +12,8 @@
 
 # Real credentials: only secrets.example.h is tracked
 firmware/include/secrets.h
+
+.idea/
+*.d
+*.i
+*.s

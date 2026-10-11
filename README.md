@@ -50,6 +50,12 @@ Update later with `git pull`.
 
 ### 2. Firmware
 
+**Windows one-click:** run `flash.bat` from the repo root. First run creates `firmware\include\secrets.h` and opens it; fill it in, run `flash.bat` again to build, flash and open the serial monitor. Use `flash.bat COM5` to force a port.
+
+**CI:** every push builds the firmware on GitHub Actions (with placeholder secrets, to check it compiles). The `firmware-esp32dev` artifact is on the run page. The binary has placeholder credentials, so for a real device build locally with your own `secrets.h`.
+
+Manual steps:
+
 Requires [PlatformIO](https://platformio.org/).
 
 ```bash
